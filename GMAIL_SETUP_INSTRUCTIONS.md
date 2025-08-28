@@ -2,11 +2,32 @@
 
 ## Current Issue & Solution
 
-The Gmail OAuth setup failed because of a project ID mismatch. The error shows the actual Google Cloud project ID is `ai-contiuous-delivery` (note: missing 'n' in "continuous").
+The Gmail OAuth setup is failing with a permissions error:
+```
+Error sending test message to Cloud PubSub projects/ai-contiuous-delivery/topics/gmail-notifications : User not authorized to perform this action.
+```
+
+This means the Gmail service account doesn't have permission to publish to your Pub/Sub topic.
 
 ## Steps to Complete Setup
 
-### 1. Run the OAuth Setup Script Interactively
+### 1. Fix Pub/Sub Permissions First
+
+Run the permissions fix script:
+
+```bash
+./scripts/fix-gmail-permissions.py
+```
+
+This script will:
+- Check if you're authenticated with gcloud
+- Verify the correct project is selected
+- Create the Pub/Sub topic if it doesn't exist
+- Add the Gmail service account with Publisher permissions
+
+### 2. Run the OAuth Setup Script
+
+After permissions are fixed:
 
 ```bash
 ./scripts/gmail-oauth-setup.py
@@ -14,18 +35,19 @@ The Gmail OAuth setup failed because of a project ID mismatch. The error shows t
 
 When prompted:
 - **Use existing credentials?** Type `y` and press Enter
-- The script should now work with the corrected project ID: `ai-contiuous-delivery`
+- The script should now work with proper permissions
 
-### 2. Alternative: Manual Project ID Override
+### 3. Alternative: Manual Project ID Override
 
 If you want to use a different project ID, set the environment variable:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT="your-actual-project-id"
+./scripts/fix-gmail-permissions.py
 ./scripts/gmail-oauth-setup.py
 ```
 
-### 3. Check Your Google Cloud Project
+### 4. Check Your Google Cloud Project
 
 To verify the correct project ID:
 
@@ -33,7 +55,7 @@ To verify the correct project ID:
 2. Check the project selector at the top
 3. Note the exact project ID (shown in parentheses)
 
-### 4. Expected Success Output
+### 5. Expected Success Output
 
 When the script succeeds, you should see:
 
@@ -54,7 +76,7 @@ GMAIL_REFRESH_TOKEN=your-refresh-token
 GITHUB_TOKEN=<your-github-token>
 ```
 
-### 5. Next Steps After Success
+### 6. Next Steps After Success
 
 1. **Copy the environment variables** shown in the output
 2. **Add them to Supabase Edge Functions**:
