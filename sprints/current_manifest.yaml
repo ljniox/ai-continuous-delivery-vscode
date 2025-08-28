@@ -1,0 +1,28 @@
+sprint_id: S1
+status: COMPLETED
+tasks:
+  - id: S1-T1
+    type: scaffold
+    desc: "Initialisation structure projet + configuration"
+    status: done
+    done_when:
+      - "Structure de fichiers créée"
+      - "Configuration Python/Node opérationnelle"
+      - "Tests de base passent"
+  
+  - id: S1-T2
+    type: feature
+    desc: "Développement fonctionnalités core selon spec"
+    status: in_progress
+    tests:
+      unit: ["tests/"]
+      e2e: ["e2e/"]
+
+artifact_contract:
+  junit: "artifacts/junit.xml"
+  coverage: "artifacts/coverage.xml"
+  lighthouse: "artifacts/lighthouse.json"
+
+notes: |
+  Projet initialisé automatiquement par Claude Code.
+  Architecture de base en place, prêt pour développement des features.
