@@ -1,50 +1,110 @@
-# AI Continuous Delivery
+# AI Continuous Delivery System
 
-Système de livraison continue automatisée avec IA utilisant Claude Code, Qwen3-Coder, et Archon MCP.
+An autonomous continuous delivery system that uses AI agents to plan, develop, test, and deploy code based on natural language specifications received via email or API.
 
-## Architecture
+## 🚀 System Status: FULLY OPERATIONAL
 
-- **Archon MCP** : Serveur de contexte et gestion des projets
-- **Supabase A** : Base de données Archon (contextes, backlog)
-- **Supabase B** : Plan de contrôle (specs, sprints, runs, artefacts)
-- **Claude Code** : Planification et développement
-- **Qwen3-Coder** : Exécution des tests et validation
-- **GitHub Actions** : Orchestration CI/CD avec runner self-hosted
+- **Python Tests**: 3/3 ✅
+- **Playwright E2E**: 2/2 ✅  
+- **Database Operations**: Working ✅
+- **Gmail Push Integration**: Implemented ✅
+- **Complete Documentation**: Available ✅
 
-## Déploiement
+## 📧 Email-Triggered Workflows
 
-### 1. Configuration VPS
+Send project specifications via email and watch the system automatically:
+
+1. **📥 Receive** - Gmail Push API monitors inbox for specs
+2. **🧠 Plan** - Claude Code analyzes requirements with Archon MCP
+3. **💻 Code** - Generates implementation with proper architecture
+4. **🧪 Test** - Runs comprehensive testing (unit + E2E)
+5. **✅ Validate** - Checks Definition of Done criteria
+6. **📊 Report** - Sends completion notification
+
+## ⚡ Quick Start
+
+### For Email Triggers
 ```bash
-./setup-vps.sh
-claude login
+# Set up Gmail Push notifications
+./scripts/setup-gmail-push.sh
+python3 scripts/gmail-oauth-setup.py
+
+# Deploy Supabase Edge Function
+supabase functions deploy gmail-webhook
+
+# Send email with YAML spec attachment to monitored Gmail account
 ```
 
-### 2. GitHub Actions Runner
+### For API Triggers
 ```bash
-cd /opt/actions-runner
-./config.sh --url https://github.com/ljniox/ai-continuous-delivery --token YOUR_TOKEN
-sudo systemctl enable github-runner
-sudo systemctl start github-runner
+# Trigger workflow directly via GitHub API
+curl -X POST \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  https://api.github.com/repos/ljniox/ai-continuous-delivery/actions/workflows/sprint.yml/dispatches \
+  -d '{"ref":"main"}'
 ```
 
-## Workflow
+## 🏗️ Architecture
 
-1. **Email** → Supabase Edge Function
-2. **GitHub Actions** déclenché
-3. **Planification** avec Claude Code + Archon MCP
-4. **Tests** avec Qwen3-Coder
-5. **Validation DoD** et merge automatique
-6. **Notification** par email avec artefacts
+```
+📧 Gmail → ☁️ Google Cloud Pub/Sub → ⚡ Supabase Edge Function → 🔄 GitHub Actions
+                                                                          ↓
+🤖 Claude Code + 🎯 Archon MCP ← 🐍 Python Tests + 🎭 Playwright E2E ← 🔧 Self-Hosted Runner
+                ↓                                    ↓
+📊 Database + 📁 Artifacts ← ✅ DoD Validation ← 📈 Reports & Metrics
+```
 
-## Configuration requise
+## 🛠️ Key Components
+
+- **Archon MCP**: Model Context Protocol server for AI agent communication
+- **Claude Code**: AI planning and development agent with subscription auth
+- **Supabase Projects**: A (Archon data) + B (Control-plane with Edge Functions)
+- **GitHub Actions**: Self-hosted ARM64 runner for consistent execution
+- **Gmail Integration**: Real-time email monitoring with OAuth 2.0
+- **Testing Stack**: pytest (Python) + Playwright (E2E) with comprehensive reporting
+
+## 📚 Documentation
+
+- **[Architecture](./docs/architecture/)** - System design and component diagrams
+- **[Setup Guides](./docs/setup/)** - Installation, Gmail Push, and troubleshooting
+- **[Schemas](./docs/schemas/)** - Database design and API contracts
+- **[Workflows](./docs/workflows/)** - GitHub Actions and pipeline details
+- **[Session Memory](./CLAUDE.md)** - Complete implementation history
+
+## 🧪 Testing
+
+```bash
+# Test Python components
+python -m pytest -v
+
+# Test E2E components  
+npx playwright test
+
+# Test Gmail integration
+python3 test-gmail-integration.py
+```
+
+## 🔐 Security Features
+
+- **OAuth 2.0** - Secure Gmail API access with refresh tokens
+- **Row Level Security** - Database access control with RLS policies
+- **Signed URLs** - Temporary access to specifications and artifacts
+- **Service Authentication** - Separate keys for different components
+
+## Configuration
 
 ### GitHub Secrets
-- `SUPABASE_B_URL`
-- `SUPABASE_B_SERVICE_ROLE` 
-- `DASHSCOPE_API_KEY`
+- `SUPABASE_B_URL` - Control-plane Supabase project URL
+- `SUPABASE_B_SERVICE_ROLE` - Service role key for database access
 
-### Variables Supabase Edge Functions
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `GITHUB_TOKEN`
-- `TARGET_REPO=ljniox/ai-continuous-delivery`
+### Supabase Edge Functions Environment
+- `GMAIL_CLIENT_ID` - OAuth 2.0 client ID for Gmail API
+- `GMAIL_CLIENT_SECRET` - OAuth 2.0 client secret
+- `GMAIL_REFRESH_TOKEN` - OAuth 2.0 refresh token
+- `GITHUB_TOKEN` - GitHub personal access token for workflow triggering
+
+---
+
+**Latest Update**: August 28, 2025 - Gmail Push Integration Complete  
+**System Version**: 2.0 - Full Email-to-Deployment Pipeline  
+**Powered by**: Claude Code (Sonnet 4) + Archon MCP
