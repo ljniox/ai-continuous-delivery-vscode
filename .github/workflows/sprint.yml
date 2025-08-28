@@ -29,6 +29,11 @@ jobs:
       # Spec à traiter
       SPEC_SIGNED_URL: ${{ github.event.client_payload.spec_url || inputs.spec_url }}
       SPEC_ID: ${{ github.event.client_payload.spec_id }}
+      
+      # Multi-project support
+      TARGET_REPO: ${{ github.event.client_payload.repo || github.repository }}
+      TARGET_BRANCH: ${{ github.event.client_payload.branch || 'main' }}
+      PROJECT_NAME: ${{ github.event.client_payload.project_name || github.repository }}
 
     steps:
       - name: Checkout repository

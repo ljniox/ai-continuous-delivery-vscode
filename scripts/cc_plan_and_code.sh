@@ -3,12 +3,25 @@ set -euo pipefail
 
 # Script de planification et développement avec Claude Code
 # Utilise Archon MCP pour la gestion des contextes et backlog
+# Support multi-projet pour développement sur repositories externes
 
 echo "🧠 Démarrage de la planification avec Claude Code..."
 
 # Variables d'environnement
 ARCHON_MCP_URL=${ARCHON_MCP_URL:-"http://localhost:8051"}
 RUN_ID=${RUN_ID:-""}
+
+# Multi-project variables
+TARGET_REPO=${TARGET_REPO:-$GITHUB_REPOSITORY}
+TARGET_BRANCH=${TARGET_BRANCH:-main}
+PROJECT_NAME=${PROJECT_NAME:-$TARGET_REPO}
+ORIGINAL_WORKSPACE=$(pwd)
+
+echo "📋 Configuration multi-projet:"
+echo "  Repository cible: $TARGET_REPO"
+echo "  Branche cible: $TARGET_BRANCH"
+echo "  Nom du projet: $PROJECT_NAME"
+echo "  Workspace original: $ORIGINAL_WORKSPACE"
 
 # Vérifier que Claude Code est installé et connecté
 if ! command -v claude &> /dev/null; then
@@ -28,6 +41,43 @@ if ! curl -s "$ARCHON_MCP_URL" > /dev/null; then
 fi
 
 echo "✅ Archon MCP accessible"
+
+# Multi-project setup: Clone target repository if different from current
+if [[ "$TARGET_REPO" != "${GITHUB_REPOSITORY:-}" ]] && [[ "$TARGET_REPO" != "$(basename $(git config --get remote.origin.url 2>/dev/null || echo '') .git)" ]]; then
+    echo "🔄 Configuration pour repository externe: $TARGET_REPO"
+    
+    # Create workspace for target project
+    WORK_DIR="/tmp/workspace-$(basename $TARGET_REPO)-$$"
+    mkdir -p "$WORK_DIR"
+    
+    echo "📥 Clonage du repository cible..."
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        git clone "https://$GITHUB_TOKEN@github.com/$TARGET_REPO.git" "$WORK_DIR"
+    else
+        git clone "https://github.com/$TARGET_REPO.git" "$WORK_DIR"
+    fi
+    
+    # Change to target repository workspace
+    cd "$WORK_DIR"
+    
+    # Copy spec file from original workspace
+    cp "$ORIGINAL_WORKSPACE/spec.yaml" . 2>/dev/null || echo "⚠️ Pas de spec.yaml à copier"
+    
+    # Configure git for AI commits
+    git config user.name "AI Continuous Delivery"
+    git config user.email "ai-cd@github-actions.noreply.com"
+    
+    # Create or checkout target branch
+    git checkout -b "feature/ai-cd-$(date +%s)" "$TARGET_BRANCH" 2>/dev/null || git checkout "$TARGET_BRANCH"
+    
+    echo "✅ Repository cible configuré dans $WORK_DIR"
+    echo "🌿 Branche courante: $(git branch --show-current)"
+    
+    EXTERNAL_REPO=true
+else
+    echo "✅ Travail dans le repository courant"
+    EXTERNAL_REPO=false
+fi
 
 # Créer le répertoire de travail si nécessaire
 mkdir -p artifacts sprints
@@ -219,7 +269,38 @@ if [[ -n "$RUN_ID" ]]; then
 EOF
 fi
 
+# Push changes to external repository if applicable
+if [[ "$EXTERNAL_REPO" == "true" ]] && [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    echo "🚀 Push des changements vers le repository cible..."
+    
+    # Ensure all changes are committed
+    if [[ -n "$(git status --porcelain)" ]]; then
+        git add .
+        git commit -m "AI Continuous Delivery: Generated code implementation
+
+Project: $PROJECT_NAME
+Target: $TARGET_REPO ($TARGET_BRANCH)
+
+🤖 Generated with Claude Code + Archon MCP
+Co-Authored-By: Claude <noreply@anthropic.com>" || echo "⚠️ Commit échoué"
+    fi
+    
+    # Push to target repository
+    CURRENT_BRANCH=$(git branch --show-current)
+    git push origin "$CURRENT_BRANCH" && echo "✅ Changements pushés vers $TARGET_REPO" || echo "❌ Push échoué vers $TARGET_REPO"
+    
+    # Copy artifacts back to original workspace for GitHub Actions
+    mkdir -p "$ORIGINAL_WORKSPACE/artifacts"
+    cp -r artifacts/* "$ORIGINAL_WORKSPACE/artifacts/" 2>/dev/null || echo "⚠️ Pas d'artefacts à copier"
+    cp -r sprints "$ORIGINAL_WORKSPACE/" 2>/dev/null || echo "⚠️ Pas de sprints à copier"
+fi
+
 echo "✅ Planification terminée !"
 echo "📁 Structure créée, tests configurés"
 echo "🌿 Branche: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'none')"
 echo "📝 Manifeste: sprints/current_manifest.yaml"
+echo "🎯 Repository cible: $TARGET_REPO"
+if [[ "$EXTERNAL_REPO" == "true" ]]; then
+    echo "📁 Workspace externe: $(pwd)"
+    echo "🔗 Artifacts copiés vers: $ORIGINAL_WORKSPACE/artifacts"
+fi
