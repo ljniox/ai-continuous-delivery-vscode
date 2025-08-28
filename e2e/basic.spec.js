@@ -22,8 +22,9 @@ test.describe('Tests E2E basiques', () => {
   });
 
   test('test de fonctionnalité basique', async ({ page }) => {
-    // Test avec une page de données statiques pour s'assurer que Playwright fonctionne
-    await page.goto('data:text/html,<html><body><button id="test-btn" onclick="this.textContent=\'Cliqué!\'">Cliquer</button></body></html>');
+    // Test avec le serveur local
+    const appUrl = process.env.APP_URL || 'http://localhost:8000';
+    await page.goto(appUrl);
     
     const button = page.locator('#test-btn');
     await expect(button).toBeVisible();
