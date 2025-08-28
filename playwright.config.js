@@ -8,7 +8,6 @@ module.exports = defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'artifacts/playwright-report' }],
-    ['json', { outputFile: 'artifacts/playwright-results.json' }],
     ['junit', { outputFile: 'artifacts/playwright-junit.xml' }]
   ],
   use: {
