@@ -34,7 +34,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b'''
                 <html>
                 <body>
-                <h1>✅ Authorization Successful!</h1>
+                <h1>Authorization Successful!</h1>
                 <p>You can now close this window and return to the terminal.</p>
                 <script>setTimeout(() => window.close(), 3000);</script>
                 </body>
@@ -45,14 +45,15 @@ class OAuthHandler(BaseHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
-                self.wfile.write(f'''
+                html_content = f'''
                 <html>
                 <body>
-                <h1>❌ Authorization Failed</h1>
+                <h1>Authorization Failed</h1>
                 <p>Error: {error}</p>
                 </body>
                 </html>
-                '''.encode())
+                '''
+                self.wfile.write(html_content.encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()
