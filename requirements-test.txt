@@ -1,0 +1,8 @@
+  pytest
+  pytest-cov
+  playwright
+  supabase
+  fastapi
+  uvicorn
+  requests
+  EOF
