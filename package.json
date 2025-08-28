@@ -1,0 +1,15 @@
+{
+  "name": "ai-continuous-delivery",
+  "version": "1.0.0",
+  "description": "Système de livraison continue avec IA",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "install:playwright": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

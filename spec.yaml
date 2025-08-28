@@ -1,0 +1,33 @@
+meta:
+  project: test-project
+  repo: ljniox/ai-continuous-delivery
+  requester_email: "test@example.com"
+planning:
+  epics:
+    - id: E1
+      title: "Test MVP - Système de base"
+      sprints:
+        - id: S1
+          goals: ["Créer structure de base", "Configurer tests basiques"]
+          user_stories:
+            - id: US1
+              as: "développeur"
+              want: "une structure de projet fonctionnelle"
+              so_that: "je peux développer efficacement"
+              acceptance:
+                - "Tests Python passent"
+                - "Tests E2E Playwright fonctionnent"
+          dod:
+            coverage_min: 0.60
+            e2e_pass: true
+            lighthouse_min: 75
+runtime:
+  stack:
+    backend: "Python 3.11 + FastAPI"
+    db: "Postgres (optionnel pour ce test)"
+tests:
+  e2e: "Playwright"
+  unit: "pytest"
+policies:
+  coding_standards: "ruff, mypy, black"
+  branch: "feature/S1/*"

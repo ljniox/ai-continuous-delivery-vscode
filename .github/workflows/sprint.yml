@@ -22,9 +22,9 @@ jobs:
       ARCHON_URL: http://localhost:8181
       ARCHON_MCP_URL: http://localhost:8051
       
-      # Claude via z.ai API (alternative à Qwen)
-      ANTHROPIC_BASE_URL: https://api.z.ai/api/anthropic
-      ANTHROPIC_AUTH_TOKEN: ${{ secrets.Z_AI_API_KEY }}
+      # Claude Code utilise l'abonnement connecté (pas de proxy API)
+      # ANTHROPIC_BASE_URL et ANTHROPIC_AUTH_TOKEN ne sont pas définis
+      # = utilisation de la session claude login normale
       
       # Spec à traiter
       SPEC_SIGNED_URL: ${{ github.event.client_payload.spec_url || inputs.spec_url }}
