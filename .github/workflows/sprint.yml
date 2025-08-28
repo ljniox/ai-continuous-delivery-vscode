@@ -64,13 +64,56 @@ jobs:
           fi
           echo "✅ Archon opérationnel"
 
-      - name: Fetch specification
-        if: env.SPEC_SIGNED_URL
+      - name: Fetch or create specification
         run: |
-          echo "📥 Téléchargement de la spec..."
-          curl -L "$SPEC_SIGNED_URL" -o spec.yaml
-          echo "Spec téléchargée:"
-          head -20 spec.yaml
+          if [ -n "$SPEC_SIGNED_URL" ]; then
+            echo "📥 Téléchargement de la spec depuis URL signée..."
+            curl -L "$SPEC_SIGNED_URL" -o spec.yaml
+            echo "Spec téléchargée:"
+            head -20 spec.yaml
+          elif [ -f "test-spec.yaml" ]; then
+            echo "📋 Utilisation de la spec de test locale..."
+            cp test-spec.yaml spec.yaml
+            echo "Spec de test:"
+            head -20 spec.yaml
+          else
+            echo "📝 Création d'une spec de test par défaut..."
+            cat > spec.yaml << 'EOF'
+          meta:
+            project: github-actions-test
+            repo: ljniox/ai-continuous-delivery
+            requester_email: "ci@github-actions.com"
+          planning:
+            epics:
+              - id: E1
+                title: "Test automatique système"
+                sprints:
+                  - id: S1
+                    goals: ["Valider fonctionnement système", "Exécuter tests basiques"]
+                    user_stories:
+                      - id: US1
+                        as: "système CI/CD"
+                        want: "valider le fonctionnement complet"
+                        so_that: "le système soit opérationnel"
+                        acceptance:
+                          - "Tests Python passent"
+                          - "Tests E2E Playwright fonctionnent"
+                    dod:
+                      coverage_min: 0.50
+                      e2e_pass: true
+                      lighthouse_min: 70
+          runtime:
+            stack:
+              backend: "Python 3.11 + Tests"
+          tests:
+            e2e: "Playwright"
+            unit: "pytest"
+          policies:
+            coding_standards: "pytest, playwright"
+            branch: "feature/test/*"
+          EOF
+            echo "✅ Spec de test créée"
+          fi
 
       - name: Create run record
         id: create_run

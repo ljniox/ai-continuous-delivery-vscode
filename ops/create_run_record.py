@@ -24,16 +24,29 @@ def main():
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        # Si pas de spec_id, on utilise la première spec disponible (pour les tests)
+        # Si pas de spec_id, créer une spec de test par défaut
         if not spec_id:
             specs = supabase.table('specs').select('*').order('created_at', desc=True).limit(1).execute()
             if specs.data:
                 spec_id = specs.data[0]['id']
-                print(f"📋 Utilisation de la spec: {spec_id}")
-        
-        if not spec_id:
-            print("❌ Aucune spec trouvée")
-            exit(1)
+                print(f"📋 Utilisation de la spec existante: {spec_id}")
+            else:
+                # Créer une spec de test par défaut
+                print("📝 Création d'une spec de test par défaut...")
+                default_spec = {
+                    'repo': 'ljniox/ai-continuous-delivery',
+                    'branch': 'main',
+                    'storage_path': 'specs/default-test.yaml',
+                    'created_by': 'github-actions-test'
+                }
+                
+                spec_result = supabase.table('specs').insert(default_spec).execute()
+                if spec_result.data:
+                    spec_id = spec_result.data[0]['id']
+                    print(f"✅ Spec de test créée: {spec_id}")
+                else:
+                    print("❌ Échec création de la spec de test")
+                    exit(1)
         
         # Créer ou récupérer le sprint associé
         sprints = supabase.table('sprints').select('*').eq('spec_id', spec_id).execute()
