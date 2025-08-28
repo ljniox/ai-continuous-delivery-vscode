@@ -243,7 +243,7 @@ def main():
     """Main setup process"""
     
     # Get project and topic info
-    project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'ai-continuous-delivery')
+    project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'ai-contiuous-delivery')
     topic_name = f"projects/{project_id}/topics/gmail-notifications"
     
     print(f"Setting up Gmail Push for:")

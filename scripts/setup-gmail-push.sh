@@ -16,7 +16,7 @@ command -v gcloud >/dev/null 2>&1 || {
 }
 
 # Configuration variables
-PROJECT_ID=${GOOGLE_CLOUD_PROJECT:-"ai-continuous-delivery"}
+PROJECT_ID=${GOOGLE_CLOUD_PROJECT:-"ai-contiuous-delivery"}
 TOPIC_NAME="gmail-notifications"
 SUBSCRIPTION_NAME="gmail-webhook-subscription"
 WEBHOOK_URL=${SUPABASE_URL}/functions/v1/gmail-webhook
