@@ -1,0 +1,111 @@
+name: Sprint Runner
+on:
+  repository_dispatch:
+    types: [spec_ingested]
+  workflow_dispatch:
+    inputs:
+      spec_url:
+        description: 'URL signée vers la spec YAML'
+        required: false
+        type: string
+
+jobs:
+  plan_build_test:
+    runs-on: [self-hosted, Linux, ARM64]
+    timeout-minutes: 60
+    env:
+      # Supabase B (Control-Plane)
+      SUPABASE_URL: ${{ secrets.SUPABASE_B_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_B_SERVICE_ROLE }}
+      
+      # Archon (MCP sur VPS)
+      ARCHON_URL: http://localhost:8181
+      ARCHON_MCP_URL: http://localhost:8051
+      
+      # Claude via z.ai API (alternative à Qwen)
+      ANTHROPIC_BASE_URL: https://api.z.ai/api/anthropic
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.Z_AI_API_KEY }}
+      
+      # Spec à traiter
+      SPEC_SIGNED_URL: ${{ github.event.client_payload.spec_url || inputs.spec_url }}
+      SPEC_ID: ${{ github.event.client_payload.spec_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python & Node
+        uses: actions/setup-python@v5
+        with: 
+          python-version: "3.11"
+      
+      - uses: actions/setup-node@v4
+        with: 
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          npm install -g @playwright/test
+          npx playwright install --with-deps
+
+      - name: Start Archon (Docker)
+        run: |
+          echo "🚀 Démarrage d'Archon..."
+          # Archon semble déjà tourner selon docker ps, on vérifie
+          if ! curl -s http://localhost:8181 > /dev/null; then
+            echo "❌ Archon API non accessible"
+            exit 1
+          fi
+          if ! curl -s http://localhost:8051 > /dev/null; then
+            echo "❌ Archon MCP non accessible"  
+            exit 1
+          fi
+          echo "✅ Archon opérationnel"
+
+      - name: Fetch specification
+        if: env.SPEC_SIGNED_URL
+        run: |
+          echo "📥 Téléchargement de la spec..."
+          curl -L "$SPEC_SIGNED_URL" -o spec.yaml
+          echo "Spec téléchargée:"
+          head -20 spec.yaml
+
+      - name: Create run record
+        id: create_run
+        run: python ops/create_run_record.py
+
+      - name: Claude Code — Planification & développement
+        env:
+          RUN_ID: ${{ steps.create_run.outputs.run_id }}
+        run: |
+          echo "🧠 Planification avec Claude Code..."
+          bash scripts/cc_plan_and_code.sh
+
+      - name: Qwen — Tests et validation
+        env:
+          RUN_ID: ${{ steps.create_run.outputs.run_id }}
+        run: |
+          echo "🧪 Tests avec Qwen..."
+          bash scripts/qwen_run_tests.sh
+
+      - name: Upload artifacts to Supabase B
+        env:
+          RUN_ID: ${{ steps.create_run.outputs.run_id }}
+        run: python ops/upload_artifacts.py
+
+      - name: DoD Gate — Validation finale
+        env:
+          RUN_ID: ${{ steps.create_run.outputs.run_id }}
+        run: python ops/dod_gate.py
+
+      - name: Send notification report
+        if: always()
+        env:
+          RUN_ID: ${{ steps.create_run.outputs.run_id }}
+        run: |
+          curl -X POST "$SUPABASE_URL/functions/v1/notify_report" \
+               -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+               -H "Content-Type: application/json" \
+               -d @artifacts/summary.json
