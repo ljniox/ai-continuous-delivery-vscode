@@ -11,6 +11,70 @@ import requests
 import argparse
 from typing import Optional
 
+def create_github_repo(repo: str, description: str, github_token: str, private: bool = False) -> bool:
+    """
+    Create a new GitHub repository
+    
+    Args:
+        repo: Repository name (e.g., "user/project-name")
+        description: Repository description
+        github_token: GitHub personal access token
+        private: Whether to create private repository
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    
+    try:
+        username, repo_name = repo.split('/')
+    except ValueError:
+        print(f"❌ Invalid repository format: {repo}. Use 'username/repo-name'")
+        return False
+    
+    # GitHub API endpoint
+    api_url = "https://api.github.com/user/repos"
+    
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "name": repo_name,
+        "description": description,
+        "private": private,
+        "auto_init": True,  # Initialize with README
+        "gitignore_template": "Python",  # Default template
+        "license_template": "mit"
+    }
+    
+    try:
+        print(f"🔧 Creating GitHub repository: {repo}...")
+        response = requests.post(api_url, headers=headers, json=payload)
+        
+        if response.status_code == 201:
+            repo_data = response.json()
+            print(f"✅ Repository created successfully!")
+            print(f"   URL: {repo_data['html_url']}")
+            print(f"   Clone: {repo_data['clone_url']}")
+            return True
+        elif response.status_code == 422:
+            error_data = response.json()
+            if "already exists" in str(error_data):
+                print(f"ℹ️  Repository {repo} already exists, continuing...")
+                return True
+            else:
+                print(f"❌ Repository creation failed: {error_data}")
+                return False
+        else:
+            print(f"❌ GitHub API error: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error creating repository: {e}")
+        return False
+
 def trigger_project(
     webhook_url: str,
     repo: str,
@@ -65,11 +129,27 @@ def trigger_project(
         print(f"   Project: {project_name}")
     
     try:
+        # Prepare headers with Supabase authentication
+        headers = {'Content-Type': 'application/json'}
+        
+        # Add Supabase authentication if URL contains supabase.co
+        if 'supabase.co' in webhook_url:
+            # Get Supabase anon key from arguments or environment
+            supabase_key = os.getenv('SUPABASE_ANON_KEY')
+            if supabase_key:
+                # Clean the key of any whitespace or newlines
+                supabase_key = supabase_key.strip()
+                headers['Authorization'] = f'Bearer {supabase_key}'
+                print(f"🔑 Using Supabase authentication")
+            else:
+                print("⚠️  No SUPABASE_ANON_KEY found in environment")
+                print("   Set SUPABASE_ANON_KEY for proper authentication")
+        
         # Send webhook request
         response = requests.post(
             webhook_url,
             json=payload,
-            headers={'Content-Type': 'application/json'},
+            headers=headers,
             timeout=30
         )
         
@@ -137,13 +217,42 @@ Examples:
     )
     
     parser.add_argument(
-        '--project',
+        '--project-name',
         help='Human-readable project name'
     )
     
     parser.add_argument(
         '--email',
         help='Requester email address'
+    )
+    
+    parser.add_argument(
+        '--create-repo',
+        action='store_true',
+        help='Create GitHub repository if it doesn\'t exist'
+    )
+    
+    parser.add_argument(
+        '--github-token',
+        default=os.getenv('GITHUB_TOKEN'),
+        help='GitHub personal access token (default: from GITHUB_TOKEN env var)'
+    )
+    
+    parser.add_argument(
+        '--private',
+        action='store_true',
+        help='Create private repository'
+    )
+    
+    parser.add_argument(
+        '--repo-description',
+        help='Repository description for new repositories'
+    )
+    
+    parser.add_argument(
+        '--supabase-key',
+        default=os.getenv('SUPABASE_ANON_KEY'),
+        help='Supabase anon key for webhook authentication (default: from SUPABASE_ANON_KEY env var)'
     )
     
     args = parser.parse_args()
@@ -158,13 +267,29 @@ Examples:
         print(f"❌ Specification file does not exist: {args.spec_file}")
         return 1
     
+    # Handle repository creation if requested
+    if args.create_repo:
+        if not args.github_token:
+            print("❌ GitHub token required for repository creation")
+            print("   Set GITHUB_TOKEN env var or use --github-token")
+            return 1
+        
+        # Use project name or repo description for repo description
+        repo_desc = args.repo_description or args.project_name or f"AI-generated project: {args.repo}"
+        
+        print(f"🔧 Repository creation requested...")
+        if not create_github_repo(args.repo, repo_desc, args.github_token, args.private):
+            print("❌ Failed to create repository")
+            return 1
+        print()  # Add spacing
+    
     # Trigger the workflow
     success = trigger_project(
         webhook_url=args.webhook_url,
         repo=args.repo,
         spec_file=args.spec_file,
         branch=args.branch,
-        project_name=args.project,
+        project_name=args.project_name,
         requester_email=args.email
     )
     

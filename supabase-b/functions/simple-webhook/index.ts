@@ -65,7 +65,7 @@ serve(async (req) => {
     }
 
     const { data: spec, error: specError } = await supabase
-      .table('specs')
+      .from('specs')
       .insert(specData)
       .select()
       .single()
@@ -113,7 +113,7 @@ serve(async (req) => {
 
     // Log status event
     await supabase
-      .table('status_events')
+      .from('status_events')
       .insert({
         phase: 'SPEC_RECEIVED',
         message: `Specification received via webhook for ${payload.repo}`,
@@ -148,9 +148,10 @@ serve(async (req) => {
       }
     }
 
-    // Trigger workflow on the target repository (not necessarily this repo)
+    // Trigger workflow on the control-plane repository (ai-continuous-delivery)
+    const controlPlaneRepo = 'ljniox/ai-continuous-delivery'
     const workflowResponse = await fetch(
-      `https://api.github.com/repos/${payload.repo}/dispatches`,
+      `https://api.github.com/repos/${controlPlaneRepo}/dispatches`,
       {
         method: 'POST',
         headers: {
@@ -162,7 +163,8 @@ serve(async (req) => {
     )
 
     if (workflowResponse.ok) {
-      console.log('GitHub workflow triggered successfully for repo:', payload.repo)
+      console.log('GitHub workflow triggered successfully for control-plane repo:', controlPlaneRepo)
+      console.log('Target repository for development:', payload.repo)
       
       return new Response(
         JSON.stringify({

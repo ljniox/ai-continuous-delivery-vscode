@@ -8,6 +8,7 @@ set -euo pipefail
 echo "🧠 Démarrage de la planification avec Claude Code..."
 
 # Variables d'environnement
+ARCHON_API_URL=${ARCHON_API_URL:-"http://localhost:8181"}
 ARCHON_MCP_URL=${ARCHON_MCP_URL:-"http://localhost:8051"}
 RUN_ID=${RUN_ID:-""}
 
@@ -34,13 +35,23 @@ fi
 echo "📋 Vérification de Claude Code..."
 claude --version
 
-# Test de connexion à Archon MCP
-if ! curl -s "$ARCHON_MCP_URL" > /dev/null; then
-    echo "❌ Archon MCP non accessible sur $ARCHON_MCP_URL"
+# Test de connexion à Archon
+echo "🔌 Vérification de la connexion à Archon..."
+
+# Test Archon API
+if ! curl -s "$ARCHON_API_URL/health" > /dev/null; then
+    echo "❌ Archon API non accessible sur $ARCHON_API_URL"
+    echo "💡 Démarrez Archon avec: ./ops/archon/init-archon.sh"
     exit 1
 fi
+echo "✅ Archon API accessible"
 
-echo "✅ Archon MCP accessible"
+# Test Archon MCP Server  
+if ! curl -s "$ARCHON_MCP_URL" > /dev/null; then
+    echo "❌ Archon MCP Server non accessible sur $ARCHON_MCP_URL"
+    exit 1
+fi
+echo "✅ Archon MCP Server accessible"
 
 # Multi-project setup: Clone target repository if different from current
 if [[ "$TARGET_REPO" != "${GITHUB_REPOSITORY:-}" ]] && [[ "$TARGET_REPO" != "$(basename $(git config --get remote.origin.url 2>/dev/null || echo '') .git)" ]]; then
@@ -98,48 +109,141 @@ if [[ -f "spec.yaml" ]]; then
     
     # Créer un prompt pour Claude Code
     cat > artifacts/claude_prompt.md << EOF
-# Analyse et Planification de Projet
+# Analyse et Planification de Projet avec Archon MCP
 
-## Contexte
-Vous devez analyser la spécification suivante et créer un plan de développement structuré.
+## Contexte Multi-Projet
+- Repository cible: $TARGET_REPO
+- Branche cible: $TARGET_BRANCH
+- Nom du projet: $PROJECT_NAME
 
 ## Spécification
 \`\`\`yaml
 $(cat spec.yaml)
 \`\`\`
 
-## Tâches à réaliser
-1. Analyser les besoins fonctionnels et techniques
-2. Découper en tâches développables
-3. Créer l'architecture de base du projet
-4. Initialiser la structure de fichiers
-5. Créer les premiers commits avec l'ossature
+## Instructions pour Claude Code avec Archon MCP
 
-## Contraintes
-- Respecter les standards de code (ruff, mypy, black pour Python)
-- Intégrer les tests unitaires et E2E
-- Préparer pour les critères DoD définis dans la spec
+Utilisez les outils MCP d'Archon pour:
+
+1. **Recherche de contexte**: Utilisez l'outil de recherche RAG d'Archon pour trouver des exemples similaires
+2. **Analyse des besoins**: Analysez la spécification avec l'aide des connaissances d'Archon
+3. **Architecture**: Consultez les bonnes pratiques stockées dans Archon
+4. **Génération de code**: Utilisez les templates et patterns d'Archon
+
+## Tâches à réaliser avec Archon
+1. Rechercher dans la base de connaissances des projets similaires
+2. Analyser les besoins fonctionnels et techniques avec contexte RAG
+3. Découper en tâches développables selon les patterns Archon
+4. Créer l'architecture de base du projet en consultant les templates
+5. Initialiser la structure de fichiers avec les bonnes pratiques
+6. Créer les premiers commits avec l'ossature
+
+## Configuration MCP
+- Serveur MCP: $ARCHON_MCP_URL
+- API Archon: $ARCHON_API_URL
+- Transport: Server-Sent Events (SSE)
 
 ## Livrables attendus
-- Structure de projet initialisée
-- Tests de base fonctionnels
-- Documentation technique minimaliste
+- Structure de projet initialisée selon les patterns Archon
+- Tests de base fonctionnels  
+- Documentation technique extraite des connaissances Archon
 - Premier commit avec l'ossature MVP
+- Manifeste de sprint enrichi par les capacités d'Archon
 EOF
 
-    echo "🤖 Exécution de la planification avec Claude Code..."
+    echo "🤖 Exécution de la planification avec Claude Code + Archon MCP..."
     
-    # Utiliser Claude Code pour analyser et planifier
-    # Note: Les commandes exactes dépendent de la version de Claude Code
-    # Ceci est un exemple basé sur la documentation
+    # Configuration MCP pour Claude Code avec Archon
+    export CLAUDE_MCP_CONFIG_PATH="$ORIGINAL_WORKSPACE/mcp-config.json"
+    export CLAUDE_MCP_SERVER_URL="$ARCHON_MCP_URL"
     
-    claude run "
-    Lis le fichier artifacts/claude_prompt.md et la spécification spec.yaml.
-    Analyse les besoins et crée un plan de développement structuré.
-    Initialise la structure de projet selon les bonnes pratiques.
-    Crée les fichiers de base nécessaires.
-    Génère un manifeste de sprint dans sprints/current_manifest.yaml
-    " || echo "⚠️ Claude Code a rencontré une erreur, continuons..."
+    # Créer la configuration MCP temporaire si elle n'existe pas
+    if [[ ! -f "$CLAUDE_MCP_CONFIG_PATH" ]]; then
+        cat > "$CLAUDE_MCP_CONFIG_PATH" << EOF
+{
+  "mcpServers": {
+    "archon": {
+      "transport": {
+        "type": "sse",
+        "url": "$ARCHON_MCP_URL"
+      },
+      "capabilities": ["tools", "resources", "prompts"]
+    }
+  }
+}
+EOF
+    fi
+    
+    # Utiliser Claude Code avec Archon MCP
+    # D'abord, ajouter le contexte du projet à Archon (using correct API)
+    echo "📚 Ajout du contexte de spécification à Archon..."
+    curl -s -X POST "$ARCHON_API_URL/api/knowledge-items/crawl" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"name\": \"Project Specification - $PROJECT_NAME\",
+            \"description\": \"YAML specification for $PROJECT_NAME project\",
+            \"url_or_path\": \"$(pwd)/spec.yaml\",
+            \"source_type\": \"file\"
+        }" || echo "⚠️ Ajout du contexte à Archon échoué"
+    
+    echo "🔍 Recherche de contexte similaire dans Archon..."
+    SIMILAR_CONTEXT=$(curl -s -X POST "$ARCHON_API_URL/api/knowledge-items/search" \
+        -H "Content-Type: application/json" \
+        -d "{\"query\": \"$(head -5 spec.yaml | tr '\n' ' ')\", \"limit\": 3}" || echo "{}")
+    
+    # Exécuter Claude Code avec le contexte Archon (simplified integration)
+    echo "🤖 Exécution de Claude Code avec contexte Archon enrichi..."
+    
+    # Add search results to prompt file
+    cat >> artifacts/claude_prompt.md << EOF
+
+## Contexte Archon RAG
+Résultats de recherche dans la base de connaissances:
+\`\`\`json
+$SIMILAR_CONTEXT
+\`\`\`
+
+## Instructions Claude Code
+1. Lis la spécification spec.yaml et le contexte ci-dessus
+2. Analyse les besoins fonctionnels et techniques
+3. Crée un plan de développement structuré
+4. Initialise la structure de projet selon les bonnes pratiques
+5. Crée les fichiers de base nécessaires
+6. Génère un manifeste de sprint dans sprints/current_manifest.yaml
+
+EOF
+    
+    # Run Claude Code with enhanced context and limit handling
+    echo "🤖 Executing Claude Code with limit handling..."
+    
+    if bash scripts/claude_limit_handler.sh execute claude --print "$(cat artifacts/claude_prompt.md)" > artifacts/claude_analysis.txt; then
+        echo "✅ Claude Code analysis completed successfully"
+    else
+        echo "⚠️ Claude Code failed after limit handling, using fallback..."
+        
+        # Fallback: Create basic project structure
+        echo "🔧 Creating fallback project structure..."
+        mkdir -p src tests docs
+        
+        cat > artifacts/claude_analysis.txt << 'EOF'
+# Fallback Analysis - Claude Limit Reached
+
+## Project Structure Created
+- src/ - Source code directory  
+- tests/ - Test files directory
+- docs/ - Documentation directory
+
+## Next Steps
+- Manual code implementation required
+- Resume when Claude limit resets
+- Check artifacts/claude_session_state.json for continuation
+EOF
+    fi
+    
+    # Show the analysis result
+    if [[ -f "artifacts/claude_analysis.txt" ]]; then
+        echo "✅ Analyse Claude Code terminée - voir artifacts/claude_analysis.txt"
+    fi
 
 else
     echo "⚠️ Aucune spécification trouvée (spec.yaml), utilisation d'un template par défaut"

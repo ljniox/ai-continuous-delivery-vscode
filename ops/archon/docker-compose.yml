@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  archon:
+    image: ghcr.io/coleam00/archon:latest
+    container_name: archon-ai-cd
+    ports:
+      - "8181:8181"  # Main API port
+      - "8051:8051"  # MCP server port
+    environment:
+      # Supabase configuration (Project A - Archon data storage)
+      SUPABASE_URL: ${SUPABASE_A_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_A_SERVICE_KEY}
+      
+      # AI Model configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      
+      # Archon specific configuration
+      NODE_ENV: production
+      
+      # MCP Server configuration
+      MCP_SERVER_PORT: 8051
+      MCP_TRANSPORT: sse
+      
+      # Knowledge management
+      ENABLE_WEB_CRAWLING: true
+      ENABLE_VECTOR_SEARCH: true
+      
+      # Project context
+      PROJECT_NAME: "AI Continuous Delivery"
+      PROJECT_DESCRIPTION: "Autonomous continuous delivery system using AI agents"
+      
+    volumes:
+      # Persistent storage for Archon data
+      - archon_data:/app/data
+      - archon_knowledge:/app/knowledge
+      - archon_cache:/app/cache
+      
+      # Mount project files for context (read-only)
+      - ../../:/workspace:ro
+      
+    networks:
+      - archon-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    
+    # Resource limits to prevent overconsumption
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+volumes:
+  archon_data:
+    driver: local
+  archon_knowledge:
+    driver: local
+  archon_cache:
+    driver: local
+
+networks:
+  archon-network:
+    driver: bridge

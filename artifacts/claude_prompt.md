@@ -1,59 +1,77 @@
-# Analyse et Planification de Projet
+# Analyse et Planification de Projet avec Archon MCP
 
-## Contexte
-Vous devez analyser la spécification suivante et créer un plan de développement structuré.
+## Contexte Multi-Projet
+- Repository cible: ljniox/ai-continuous-delivery
+- Branche cible: main
+- Nom du projet: ljniox/ai-continuous-delivery
 
 ## Spécification
 ```yaml
 meta:
-  project: test-project
+  project: archon-integration-test
   repo: ljniox/ai-continuous-delivery
-  requester_email: "test@example.com"
+  requester_email: test@example.com
 planning:
   epics:
     - id: E1
-      title: "Test MVP - Système de base"
+      title: Test Archon Integration
       sprints:
         - id: S1
-          goals: ["Créer structure de base", "Configurer tests basiques"]
+          goals: ["Validate Archon + Claude Code integration"]
           user_stories:
             - id: US1
-              as: "développeur"
-              want: "une structure de projet fonctionnelle"
-              so_that: "je peux développer efficacement"
+              as: developer
+              want: to validate archon integration
+              so_that: the system works properly
               acceptance:
-                - "Tests Python passent"
-                - "Tests E2E Playwright fonctionnent"
-          dod:
-            coverage_min: 0.60
-            e2e_pass: true
-            lighthouse_min: 75
+                - "Integration test passes"
 runtime:
   stack:
-    backend: "Python 3.11 + FastAPI"
-    db: "Postgres (optionnel pour ce test)"
+    backend: "Python 3.11"
 tests:
-  e2e: "Playwright"
   unit: "pytest"
-policies:
-  coding_standards: "ruff, mypy, black"
-  branch: "feature/S1/*"
 ```
 
-## Tâches à réaliser
-1. Analyser les besoins fonctionnels et techniques
-2. Découper en tâches développables
-3. Créer l'architecture de base du projet
-4. Initialiser la structure de fichiers
-5. Créer les premiers commits avec l'ossature
+## Instructions pour Claude Code avec Archon MCP
 
-## Contraintes
-- Respecter les standards de code (ruff, mypy, black pour Python)
-- Intégrer les tests unitaires et E2E
-- Préparer pour les critères DoD définis dans la spec
+Utilisez les outils MCP d'Archon pour:
+
+1. **Recherche de contexte**: Utilisez l'outil de recherche RAG d'Archon pour trouver des exemples similaires
+2. **Analyse des besoins**: Analysez la spécification avec l'aide des connaissances d'Archon
+3. **Architecture**: Consultez les bonnes pratiques stockées dans Archon
+4. **Génération de code**: Utilisez les templates et patterns d'Archon
+
+## Tâches à réaliser avec Archon
+1. Rechercher dans la base de connaissances des projets similaires
+2. Analyser les besoins fonctionnels et techniques avec contexte RAG
+3. Découper en tâches développables selon les patterns Archon
+4. Créer l'architecture de base du projet en consultant les templates
+5. Initialiser la structure de fichiers avec les bonnes pratiques
+6. Créer les premiers commits avec l'ossature
+
+## Configuration MCP
+- Serveur MCP: http://localhost:8051
+- API Archon: http://localhost:8181
+- Transport: Server-Sent Events (SSE)
 
 ## Livrables attendus
-- Structure de projet initialisée
-- Tests de base fonctionnels
-- Documentation technique minimaliste
+- Structure de projet initialisée selon les patterns Archon
+- Tests de base fonctionnels  
+- Documentation technique extraite des connaissances Archon
 - Premier commit avec l'ossature MVP
+- Manifeste de sprint enrichi par les capacités d'Archon
+
+## Contexte Archon RAG
+Résultats de recherche dans la base de connaissances:
+```json
+{"results":[],"query":"meta:   project: archon-integration-test   repo: ljniox/ai-continuous-delivery   requester_email: test@example.com planning: ","source":null,"match_count":5,"total_found":0,"execution_path":"rag_service_pipeline","search_mode":"hybrid","reranking_applied":false,"success":true}
+```
+
+## Instructions Claude Code
+1. Lis la spécification spec.yaml et le contexte ci-dessus
+2. Analyse les besoins fonctionnels et techniques
+3. Crée un plan de développement structuré
+4. Initialise la structure de projet selon les bonnes pratiques
+5. Crée les fichiers de base nécessaires
+6. Génère un manifeste de sprint dans sprints/current_manifest.yaml
+

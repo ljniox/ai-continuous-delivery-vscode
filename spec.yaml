@@ -1,33 +1,23 @@
 meta:
-  project: test-project
+  project: archon-integration-test
   repo: ljniox/ai-continuous-delivery
-  requester_email: "test@example.com"
+  requester_email: test@example.com
 planning:
   epics:
     - id: E1
-      title: "Test MVP - Système de base"
+      title: Test Archon Integration
       sprints:
         - id: S1
-          goals: ["Créer structure de base", "Configurer tests basiques"]
+          goals: ["Validate Archon + Claude Code integration"]
           user_stories:
             - id: US1
-              as: "développeur"
-              want: "une structure de projet fonctionnelle"
-              so_that: "je peux développer efficacement"
+              as: developer
+              want: to validate archon integration
+              so_that: the system works properly
               acceptance:
-                - "Tests Python passent"
-                - "Tests E2E Playwright fonctionnent"
-          dod:
-            coverage_min: 0.60
-            e2e_pass: true
-            lighthouse_min: 75
+                - "Integration test passes"
 runtime:
   stack:
-    backend: "Python 3.11 + FastAPI"
-    db: "Postgres (optionnel pour ce test)"
+    backend: "Python 3.11"
 tests:
-  e2e: "Playwright"
   unit: "pytest"
-policies:
-  coding_standards: "ruff, mypy, black"
-  branch: "feature/S1/*"

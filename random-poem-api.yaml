@@ -1,0 +1,267 @@
+meta:
+  project: random-poem-api
+  repo: ljniox/random-poem-api
+  requester_email: james.niox@jameservices.net
+  description: >
+    API publique FastAPI qui renvoie au hasard un poème depuis un fichier JSON statique (~30 poèmes).
+    Endpoints: GET /poem (aléatoire), GET /poems (liste/filtre), GET /health (vivant).
+
+planning:
+  epics:
+    - id: E1
+      title: "Build public Random Poem API"
+      sprints:
+        - id: S1
+          goals:
+            - "Exposer un endpoint public GET /poem"
+            - "Servir depuis un JSON statique"
+            - "Conteneuriser et tester"
+          user_stories:
+            - id: US1
+              as: "Visiteur"
+              want: "obtenir un poème aléatoire via une requête HTTP"
+              so_that: "je puisse l'afficher dans mon application"
+              acceptance:
+                - "GET /poem renvoie un objet JSON de poème"
+                - "Les CORS sont ouverts (configurable)"
+                - "Disponibilité vérifiable via /health"
+            - id: US2
+              as: "Intégrateur"
+              want: "lister plusieurs poèmes"
+              so_that: "je puisse en choisir côté client"
+              acceptance:
+                - "GET /poems?limit=... renvoie N poèmes uniques"
+                - "Pagination simple avec offset/limit"
+        - id: S2
+          goals:
+            - "CI: lint + tests"
+            - "Build Docker"
+            - "Déploiement cloud (ex. Fly.io, Render, Cloud Run)"
+
+runtime:
+  stack:
+    backend: "Python 3.11 + FastAPI + Uvicorn"
+    storage: "Fichier JSON statique (app/poems.json)"
+    deployment: "Docker (compatible Fly.io / Render / Cloud Run / Azure Container Apps)"
+  api:
+    base_url: "/"
+    endpoints:
+      - method: GET
+        path: /poem
+        summary: "Retourne un poème aléatoire"
+        responses:
+          200: "application/json (Poem)"
+      - method: GET
+        path: /poems
+        summary: "Retourne une liste de poèmes (limit, offset)"
+        query:
+          - name: limit
+            type: integer
+            default: 10
+            min: 1
+            max: 30
+          - name: offset
+            type: integer
+            default: 0
+            min: 0
+        responses:
+          200: "application/json (List[Poem])"
+      - method: GET
+        path: /health
+        summary: "Vérifie la santé de l'application"
+        responses:
+          200: "application/json ({status: ok})"
+  security:
+    auth: "Aucune (lecture publique)"
+    cors:
+      allow_origins: ["*"]  # à restreindre en prod si besoin
+      allow_methods: ["GET"]
+      allow_headers: ["*"]
+
+tests:
+  unit: "pytest"
+  e2e: "playwright (optionnel, non requis ici)"
+  commands:
+    - "pytest -q"
+
+policies:
+  branch: "feature/ai-generated/*"
+  code_style: "ruff + black"
+  min_python: "3.11"
+
+files:
+  - path: app/main.py
+    content: |
+      from fastapi import FastAPI, Query
+      from fastapi.middleware.cors import CORSMiddleware
+      from pydantic import BaseModel
+      import json
+      import random
+      from pathlib import Path
+      from typing import List
+
+      APP_DIR = Path(__file__).resolve().parent
+      POEMS_FILE = APP_DIR / "poems.json"
+
+      class Poem(BaseModel):
+          id: int
+          title: str
+          text: str
+          author: str | None = None
+          tags: List[str] | None = None
+
+      def load_poems() -> List[Poem]:
+          with POEMS_FILE.open("r", encoding="utf-8") as f:
+              data = json.load(f)
+          return [Poem(**p) for p in data]
+
+      app = FastAPI(title="Random Poem API", version="1.0.0")
+
+      app.add_middleware(
+          CORSMiddleware,
+          allow_origins=["*"],   # restreindre en prod si nécessaire
+          allow_credentials=False,
+          allow_methods=["GET"],
+          allow_headers=["*"],
+      )
+
+      POEMS = load_poems()
+
+      @app.get("/health")
+      def health():
+          return {"status": "ok", "count": len(POEMS)}
+
+      @app.get("/poem", response_model=Poem, summary="Retourne un poème aléatoire")
+      def get_random_poem():
+          return random.choice(POEMS)
+
+      @app.get("/poems", response_model=List[Poem], summary="Retourne une liste de poèmes")
+      def get_poems(
+          limit: int = Query(10, ge=1, le=min(30, len(POEMS))),
+          offset: int = Query(0, ge=0),
+      ):
+          subset = POEMS[offset: offset + limit]
+          if not subset and len(POEMS) > 0:
+              # si offset trop grand, renvoyer une liste vide
+              return []
+          return subset
+
+  - path: app/poems.json
+    content: |
+      [
+        {"id":1,"title":"Aube sur Dakar","text":"Aube sur Dakar,\nun voile d’or sur l’écume,\nles pirogues rêvent.","author":"Anonyme","tags":["aube","mer","dakar"]},
+        {"id":2,"title":"Sable et sel","text":"Le vent polit tout,\nles promesses comme les pierres—\nreste la lumière.","author":"Anonyme","tags":["vent","promesses","lumière"]},
+        {"id":3,"title":"Pluie tiède","text":"La pluie tiède tombe,\nchaque goutte est un tam-tam\nsur ma peau qui danse.","author":"Anonyme","tags":["pluie","danse"]},
+        {"id":4,"title":"Route rouge","text":"Poussière de latérite,\nle soleil ouvre la route—\nmon cœur suit pieds nus.","author":"Anonyme","tags":["route","soleil"]},
+        {"id":5,"title":"Kora","text":"Douze cordes claires,\nle temps se plie comme l’ombre\nau seuil de la voix.","author":"Anonyme","tags":["musique","kora"]},
+        {"id":6,"title":"Marché","text":"Épices en éclats,\nles couleurs parlent plus fort\nque mille discours.","author":"Anonyme","tags":["marché","couleurs"]},
+        {"id":7,"title":"Harmattan","text":"Le vent d’Harmattan\nécrit en poussière ocre\nla carte des jours.","author":"Anonyme","tags":["harmattan"]},
+        {"id":8,"title":"Pont","text":"Un pas, puis un autre—\nentre deux rives, le doute\ndevient traversée.","author":"Anonyme","tags":["pont","doute"]},
+        {"id":9,"title":"Sel et miel","text":"Ta bouche a le goût\ndu large et des manguiers mûrs—\nété sur ma langue.","author":"Anonyme","tags":["amour","été"]},
+        {"id":10,"title":"Sieste","text":"Le monde suspend\nsa montre à un manguier vert—\nune heure sans fin.","author":"Anonyme","tags":["sieste"]},
+        {"id":11,"title":"Pirogue","text":"La mer est un livre,\nchaque ride une phrase—\nje tourne la page.","author":"Anonyme","tags":["mer","lecture"]},
+        {"id":12,"title":"Minaret","text":"Un fil de prière\nrelie le ciel au sable—\nle jour s’agenouille.","author":"Anonyme","tags":["prière"]},
+        {"id":13,"title":"Bitume chaud","text":"Mirage au lointain,\nmes pas apprennent la faim\net boivent l’ombre.","author":"Anonyme","tags":["route","chaleur"]},
+        {"id":14,"title":"Case","text":"Mur de banco frais,\nles histoires s’y reposent\ncomme des oiseaux.","author":"Anonyme","tags":["maison","oiseaux"]},
+        {"id":15,"title":"Marchand de nuit","text":"Une lampe roule\ndans la paume de la ville—\nles voix deviennent or.","author":"Anonyme","tags":["ville","nuit"]},
+        {"id":16,"title":"Rizière","text":"L’eau tient un miroir,\nle ciel y lave son bleu—\nles mains plantent l’aube.","author":"Anonyme","tags":["rizière","travail"]},
+        {"id":17,"title":"Tambours","text":"Peaux tendues, cœurs nus—\nla cadence nous rassemble\nplus que les mots dits.","author":"Anonyme","tags":["musique","tambours"]},
+        {"id":18,"title":"Filigrane","text":"Ta patience tisse\ndes chemins dans ma colère—\nun pont de douceur.","author":"Anonyme","tags":["amour","douceur"]},
+        {"id":19,"title":"Café Touba","text":"Poivre et souvenance—\nla tasse fume un retour\nvers l’âme assise.","author":"Anonyme","tags":["café","mémoire"]},
+        {"id":20,"title":"Orage proche","text":"La peau du ciel claque,\nle tonnerre dénoue l’air—\nrespire, la pluie.","author":"Anonyme","tags":["orage","pluie"]},
+        {"id":21,"title":"Cour intérieure","text":"Au citronnier plein,\nles secrets sèchent au fil—\nrires en coulisse.","author":"Anonyme","tags":["maison","rires"]},
+        {"id":22,"title":"Pêcheurs","text":"Rame après la rame,\nla fatigue devient chant—\nretour de lumière.","author":"Anonyme","tags":["mer","pêche"]},
+        {"id":23,"title":"Feu de bois","text":"La braise écoute,\nles vieilles histoires crépitent—\nla nuit prend goût.","author":"Anonyme","tags":["nuit","feu"]},
+        {"id":24,"title":"Sisal","text":"Au bout des cordes,\nnos volontés s’entrelacent—\nnavires intimes.","author":"Anonyme","tags":["lien","forces"]},
+        {"id":25,"title":"Mue","text":"Je laisse derrière\nune peau de peur usée—\nplace à la pluie neuve.","author":"Anonyme","tags":["renaissance"]},
+        {"id":26,"title":"Échoppe","text":"Petits miracles—\nun bouton, un fil, un rire\nrépare le jour.","author":"Anonyme","tags":["boutique","quotidien"]},
+        {"id":27,"title":"Dune","text":"La dune avance,\ncomme une lente pensée—\nelle me dépasse.","author":"Anonyme","tags":["désert","pensée"]},
+        {"id":28,"title":"Fleuve","text":"Je te confie tout,\ncomme l’eau confie ses fonds\nau large patient.","author":"Anonyme","tags":["fleuve","confiance"]},
+        {"id":29,"title":"Route côtière","text":"Moteur, sel, radios—\nchaque virage sème un\nsouvenir de toi.","author":"Anonyme","tags":["route","mer","souvenir"]},
+        {"id":30,"title":"Étoiles basses","text":"Ce soir les étoiles\nviennent boire à nos terrasses—\nla nuit a soif d’hommes.","author":"Anonyme","tags":["nuit","étoiles"]}
+      ]
+
+  - path: requirements.txt
+    content: |
+      fastapi==0.115.0
+      uvicorn[standard]==0.30.6
+      pydantic==2.8.2
+
+  - path: Dockerfile
+    content: |
+      FROM python:3.11-slim
+      WORKDIR /app
+      ENV PYTHONDONTWRITEBYTECODE=1 \
+          PYTHONUNBUFFERED=1
+      COPY requirements.txt .
+      RUN pip install --no-cache-dir -r requirements.txt
+      COPY app ./app
+      EXPOSE 8000
+      CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  - path: tests/test_api.py
+    content: |
+      import json, os
+      from fastapi.testclient import TestClient
+      from app.main import app
+
+      client = TestClient(app)
+
+      def test_health():
+          r = client.get("/health")
+          assert r.status_code == 200
+          assert r.json()["status"] == "ok"
+
+      def test_random_poem_structure():
+          r = client.get("/poem")
+          assert r.status_code == 200
+          body = r.json()
+          for k in ["id", "title", "text"]:
+              assert k in body
+
+      def test_poems_list_limit():
+          r = client.get("/poems?limit=5")
+          assert r.status_code == 200
+          data = r.json()
+          assert isinstance(data, list)
+          assert len(data) == 5
+
+  - path: .github/workflows/ci.yml
+    content: |
+      name: CI
+      on:
+        push:
+          branches: [ main, develop, "feature/**" ]
+        pull_request:
+          branches: [ main, develop ]
+      jobs:
+        ci:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: "3.11"
+            - name: Install deps
+              run: |
+                python -m pip install --upgrade pip
+                pip install -r requirements.txt
+                pip install pytest
+            - name: Test
+              run: pytest -q
+
+usage:
+  dev:
+    run: "uvicorn app.main:app --reload --port 8000"
+    curl_examples:
+      - "curl -s http://localhost:8000/health"
+      - "curl -s http://localhost:8000/poem"
+      - "curl -s 'http://localhost:8000/poems?limit=5&offset=10'"
+  docker:
+    build: "docker build -t random-poem-api:latest ."
+    run: "docker run -p 8000:8000 random-poem-api:latest"
+  deploy:
+    hints:
+      - "Fly.io: fly launch (Dockerfile détecté) puis fly deploy"
+      - "Cloud Run: gcloud run deploy --source=."
+      - "Render: nouveau service web Docker"
