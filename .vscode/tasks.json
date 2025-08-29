@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Archon: Build Context + Open",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "./ops/archon/archon-context.sh && if command -v code >/dev/null 2>&1; then code -r artifacts/archon_dev_brief.md; else echo 'Open artifacts/archon_dev_brief.md manually'; fi"
+      ],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "Gemini: Run Tests",
+      "type": "shell",
+      "command": "bash",
+      "args": [ "-lc", "bash scripts/gemini_run_tests.sh" ],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": false }
+    }
+  ]
+}
